@@ -7,6 +7,15 @@ public class ContextFlipGame : MonoBehaviour
 {
     public InputAction leftAction;
     public InputAction rightAction;
+    public InputAction selectAction;
+
+    public GameObject leftCursor;
+    public GameObject rightCursor;
+    public float blinkTime = 0.4f;
+
+    public AudioClip scrollSound;
+    public AudioClip selectSound;
+    AudioSource flipAudio;
 
     public string japaneseContextName = "DINNER WITH OBAACHAN";
     public string americanContextName = "DINNER WITH FRIENDS";
@@ -43,6 +52,10 @@ public class ContextFlipGame : MonoBehaviour
     int combo = 0;
     int points = 0;
 
+    bool cursorOnLeft = true;
+    float blinkTimer;
+    bool cursorVisible = true;
+
     bool finished = false;
     bool reported = false;
 
@@ -50,16 +63,21 @@ public class ContextFlipGame : MonoBehaviour
     {
         leftAction.Enable();
         rightAction.Enable();
+        selectAction.Enable();
     }
 
     private void OnDisable()
     {
         leftAction.Disable();
         rightAction.Disable();
+        selectAction.Disable();
     }
 
     void Start()
     {
+        flipAudio = GetComponent<AudioSource>();
+        ShowCursor();
+
         if (Random.Range(0, 2) == 0)
         {
             isJapaneseContext = true;
@@ -77,7 +95,10 @@ public class ContextFlipGame : MonoBehaviour
         }
 
         messageDisplay.text = "";
-        scoreDisplay.text = "0";
+        if (scoreDisplay != null)
+        {
+            scoreDisplay.text = "0";
+        }
         ShowContext();
         NextCue();
     }
@@ -110,13 +131,71 @@ public class ContextFlipGame : MonoBehaviour
             FlipContext();
         }
 
-        if (leftAction.triggered)
+        if (leftAction.triggered && cursorOnLeft == false)
         {
-            CheckAnswer(true);
+            cursorOnLeft = true;
+            ShowCursor();
+            flipAudio.PlayOneShot(scrollSound);
         }
-        else if (rightAction.triggered)
+        else if (rightAction.triggered && cursorOnLeft == true)
         {
-            CheckAnswer(false);
+            cursorOnLeft = false;
+            ShowCursor();
+            flipAudio.PlayOneShot(scrollSound);
+        }
+
+        BlinkCursor();
+
+        if (selectAction.triggered)
+        {
+            ShowCursor();
+            flipAudio.PlayOneShot(selectSound);
+            CheckAnswer(cursorOnLeft);
+        }
+    }
+
+    void ShowCursor()
+    {
+        if (cursorOnLeft == true)
+        {
+            leftCursor.SetActive(true);
+            rightCursor.SetActive(false);
+        }
+        else
+        {
+            leftCursor.SetActive(false);
+            rightCursor.SetActive(true);
+        }
+
+        cursorVisible = true;
+        blinkTimer = blinkTime;
+    }
+
+    void BlinkCursor()
+    {
+        blinkTimer -= Time.deltaTime;
+
+        if (blinkTimer <= 0)
+        {
+            if (cursorVisible == true)
+            {
+                cursorVisible = false;
+            }
+            else
+            {
+                cursorVisible = true;
+            }
+
+            if (cursorOnLeft == true)
+            {
+                leftCursor.SetActive(cursorVisible);
+            }
+            else
+            {
+                rightCursor.SetActive(cursorVisible);
+            }
+
+            blinkTimer = blinkTime;
         }
     }
 
@@ -214,7 +293,10 @@ public class ContextFlipGame : MonoBehaviour
             }
         }
 
-        scoreDisplay.text = points.ToString();
+        if (scoreDisplay != null)
+        {
+            scoreDisplay.text = points.ToString();
+        }
 
         if (cuePool.Count > 0)
         {
@@ -231,6 +313,8 @@ public class ContextFlipGame : MonoBehaviour
         cueDisplay.text = "";
         leftDisplay.text = "";
         rightDisplay.text = "";
+        leftCursor.SetActive(false);
+        rightCursor.SetActive(false);
         messageDisplay.text = "+" + points;
         finished = true;
     }

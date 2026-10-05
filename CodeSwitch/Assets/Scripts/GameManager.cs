@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TMPro;
 
 public class GameManager : MonoBehaviour
 {
@@ -12,6 +13,12 @@ public class GameManager : MonoBehaviour
 
     public int score;
     public int highScore;
+
+    public GameObject scoreUI;
+    public TextMeshProUGUI scoreDisplay;
+
+    public AudioClip startSound;
+    AudioSource managerAudio;
 
     List<int> roundScenes = new();
 
@@ -28,9 +35,18 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    void Start()
+    {
+        managerAudio = GetComponent<AudioSource>();
+        scoreUI.SetActive(false);
+    }
+
     public void StartRound()
     {
+        managerAudio.PlayOneShot(startSound);
         score = 0;
+        scoreUI.SetActive(true);
+        ShowScore();
 
         List<int> pool = new();
         for (int i = 0; i < minigameScenes.Count; i++)
@@ -55,6 +71,7 @@ public class GameManager : MonoBehaviour
     public void MinigameFinished(int points)
     {
         score += points;
+        ShowScore();
         LoadNextGame();
     }
 
@@ -74,8 +91,14 @@ public class GameManager : MonoBehaviour
 
     void EndRound()
     {
+        scoreUI.SetActive(false);
         HighScoreCheck(score);
         SceneManager.LoadScene(resultsSceneIndex);
+    }
+
+    void ShowScore()
+    {
+        scoreDisplay.text = "SCORE: " + score;
     }
 
     public void HighScoreCheck(int newScore)

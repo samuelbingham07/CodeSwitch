@@ -3,71 +3,88 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
 
-public class ChoiceGame : MonoBehaviour
+public class HonorificRushGame : MonoBehaviour
 {
     public InputAction horizontalAction;
-    public InputAction verticalAction;
     public InputAction selectAction;
 
     public List<GameObject> cursors = new();
-    public int correctChoice = 0;
-    public int columns = 3;
     public float blinkTime = 0.4f;
 
-    public float timeLimit = 5f;
-    public int winPoints = 100;
+    public List<string> people = new();
+    public List<int> correctAnswers = new();
+    public float timePerPerson = 3f;
 
-    public float resultTime = 1f;
+    public int pointsPerAnswer = 20;
+    public int wrongPenalty = 10;
+    public float resultTime = 1.5f;
 
-    public string winMessage = "NICE!";
-    public string loseMessage = "NOT QUITE";
+    public string rightMessage = "RIGHT!";
+    public string wrongMessage = "WRONG!";
+    public string tooSlowMessage = "TOO SLOW!";
 
+    public TextMeshProUGUI personDisplay;
     public TextMeshProUGUI timerDisplay;
+    public TextMeshProUGUI scoreDisplay;
     public TextMeshProUGUI messageDisplay;
 
     public AudioClip scrollSound;
     public AudioClip selectSound;
-    AudioSource choiceAudio;
+    AudioSource gameAudio;
 
     int currentChoice = 0;
     float blinkTimer;
     bool cursorVisible = true;
+
+    int currentPerson;
+    List<int> personPool = new();
+    float personTimer;
+    int points = 0;
+
     bool finished = false;
     bool reported = false;
-    int pointsEarned = 0;
 
     private void OnEnable()
     {
         horizontalAction.Enable();
-        verticalAction.Enable();
         selectAction.Enable();
     }
 
     private void OnDisable()
     {
         horizontalAction.Disable();
-        verticalAction.Disable();
         selectAction.Disable();
     }
 
     void Start()
     {
-        choiceAudio = GetComponent<AudioSource>();
+        gameAudio = GetComponent<AudioSource>();
+
+        for (int i = 0; i < people.Count; i++)
+        {
+            personPool.Add(i);
+        }
+
         messageDisplay.text = "";
+        ShowScore();
         ShowCursor();
+        NextPerson();
     }
 
     void Update()
     {
         if (finished == false)
         {
-            timeLimit -= Time.deltaTime;
-            timerDisplay.text = Mathf.CeilToInt(timeLimit).ToString();
+            personTimer -= Time.deltaTime;
 
-            if (timeLimit <= 0)
+            if (timerDisplay != null)
             {
-                timerDisplay.text = "0";
-                Lose();
+                timerDisplay.text = Mathf.CeilToInt(personTimer).ToString();
+            }
+
+            if (personTimer <= 0)
+            {
+                Answer(false, tooSlowMessage);
             }
             else
             {
@@ -76,7 +93,17 @@ public class ChoiceGame : MonoBehaviour
 
                 if (selectAction.triggered)
                 {
-                    Choose();
+                    ShowCursor();
+                    gameAudio.PlayOneShot(selectSound);
+
+                    if (currentChoice == correctAnswers[currentPerson])
+                    {
+                        Answer(true, rightMessage);
+                    }
+                    else
+                    {
+                        Answer(false, wrongMessage);
+                    }
                 }
             }
         }
@@ -89,6 +116,66 @@ public class ChoiceGame : MonoBehaviour
                 reported = true;
                 ReportResult();
             }
+        }
+    }
+
+    void NextPerson()
+    {
+        int randomIndex = Random.Range(0, personPool.Count);
+        currentPerson = personPool[randomIndex];
+        personPool.Remove(currentPerson);
+
+        personDisplay.text = people[currentPerson];
+        personTimer = timePerPerson;
+    }
+
+    void Answer(bool correct, string message)
+    {
+        if (correct == true)
+        {
+            points += pointsPerAnswer;
+        }
+        else
+        {
+            points -= wrongPenalty;
+
+            if (points < 0)
+            {
+                points = 0;
+            }
+        }
+
+        messageDisplay.text = message;
+        ShowScore();
+
+        if (personPool.Count > 0)
+        {
+            NextPerson();
+        }
+        else
+        {
+            EndGame();
+        }
+    }
+
+    void EndGame()
+    {
+        personDisplay.text = "";
+
+        for (int i = 0; i < cursors.Count; i++)
+        {
+            cursors[i].SetActive(false);
+        }
+
+        messageDisplay.text = "+" + points;
+        finished = true;
+    }
+
+    void ShowScore()
+    {
+        if (scoreDisplay != null)
+        {
+            scoreDisplay.text = points.ToString();
         }
     }
 
@@ -108,23 +195,11 @@ public class ChoiceGame : MonoBehaviour
             }
         }
 
-        if (verticalAction.triggered)
-        {
-            if (verticalAction.ReadValue<float>() > 0)
-            {
-                newChoice = currentChoice - columns;
-            }
-            else if (verticalAction.ReadValue<float>() < 0)
-            {
-                newChoice = currentChoice + columns;
-            }
-        }
-
         if (newChoice >= 0 && newChoice < cursors.Count && newChoice != currentChoice)
         {
             currentChoice = newChoice;
             ShowCursor();
-            choiceAudio.PlayOneShot(scrollSound);
+            gameAudio.PlayOneShot(scrollSound);
         }
     }
 
@@ -166,54 +241,15 @@ public class ChoiceGame : MonoBehaviour
         }
     }
 
-    void Choose()
-    {
-        ShowCursor();
-        choiceAudio.PlayOneShot(selectSound);
-
-        if (currentChoice == correctChoice)
-        {
-            CorrectChoice();
-        }
-        else
-        {
-            WrongChoice();
-        }
-    }
-
-    void CorrectChoice()
-    {
-        if (finished == false)
-        {
-            pointsEarned = winPoints;
-            messageDisplay.text = winMessage;
-            finished = true;
-        }
-    }
-
-    void WrongChoice()
-    {
-        Lose();
-    }
-
-    void Lose()
-    {
-        if (finished == false)
-        {
-            messageDisplay.text = loseMessage;
-            finished = true;
-        }
-    }
-
     void ReportResult()
     {
         if (GameManager.instance != null)
         {
-            GameManager.instance.MinigameFinished(pointsEarned);
+            GameManager.instance.MinigameFinished(points);
         }
         else
         {
-            Debug.Log("Minigame over. Points: " + pointsEarned);
+            Debug.Log("Minigame over. Points: " + points);
         }
     }
 }

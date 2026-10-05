@@ -5,6 +5,7 @@ public class Transition : MonoBehaviour
 {
     public float lifetime = 0.6f;
     public List<GameObject> showAfter = new();
+    public List<GameObject> hideAfter = new();
 
     void Update()
     {
@@ -15,6 +16,11 @@ public class Transition : MonoBehaviour
             for (int i = 0; i < showAfter.Count; i++)
             {
                 showAfter[i].SetActive(true);
+            }
+
+            for (int i = 0; i < hideAfter.Count; i++)
+            {
+                hideAfter[i].SetActive(false);
             }
 
             Destroy(gameObject);
