@@ -17,16 +17,15 @@ public class BowDepthGame : MonoBehaviour
     public float formalMax = 0.95f;
     public float casualMin = 0.1f;
     public float casualMax = 0.3f;
-    public GameObject formalZone;
-    public GameObject casualZone;
 
     public float timeLimit = 5f;
     public int winPoints = 100;
     public float resultTime = 1f;
 
     public string winMessage = "NICE!";
-    public string tooDeepMessage = "TOO DEEP!";
-    public string tooShallowMessage = "TOO SHALLOW!";
+    public string tooFormalMessage = "TOO FORMAL!";
+    public string tooCasualMessage = "TOO CASUAL!";
+    public string missMessage = "MISSED!";
     public string loseMessage = "NOT QUITE";
 
     public TextMeshProUGUI promptDisplay;
@@ -62,15 +61,11 @@ public class BowDepthGame : MonoBehaviour
         {
             isFormal = true;
             promptDisplay.text = formalPrompt;
-            formalZone.SetActive(true);
-            casualZone.SetActive(false);
         }
         else
         {
             isFormal = false;
             promptDisplay.text = casualPrompt;
-            formalZone.SetActive(false);
-            casualZone.SetActive(true);
         }
 
         messageDisplay.text = "";
@@ -140,33 +135,42 @@ public class BowDepthGame : MonoBehaviour
 
     void CheckBow()
     {
-        float zoneMin;
-        float zoneMax;
+        float rightMin;
+        float rightMax;
+        float wrongMin;
+        float wrongMax;
+        string wrongZoneMessage;
 
         if (isFormal == true)
         {
-            zoneMin = formalMin;
-            zoneMax = formalMax;
+            rightMin = formalMin;
+            rightMax = formalMax;
+            wrongMin = casualMin;
+            wrongMax = casualMax;
+            wrongZoneMessage = tooCasualMessage;
         }
         else
         {
-            zoneMin = casualMin;
-            zoneMax = casualMax;
+            rightMin = casualMin;
+            rightMax = casualMax;
+            wrongMin = formalMin;
+            wrongMax = formalMax;
+            wrongZoneMessage = tooFormalMessage;
         }
 
-        if (meterValue >= zoneMin && meterValue <= zoneMax)
+        if (meterValue >= rightMin && meterValue <= rightMax)
         {
             pointsEarned = winPoints;
             messageDisplay.text = winMessage;
             finished = true;
         }
-        else if (meterValue > zoneMax)
+        else if (meterValue >= wrongMin && meterValue <= wrongMax)
         {
-            Lose(tooDeepMessage);
+            Lose(wrongZoneMessage);
         }
         else
         {
-            Lose(tooShallowMessage);
+            Lose(missMessage);
         }
     }
 

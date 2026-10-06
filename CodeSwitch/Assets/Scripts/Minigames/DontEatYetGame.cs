@@ -9,6 +9,7 @@ public class DontEatYetGame : MonoBehaviour
     public string familyPrompt = "DINNER WITH OBAACHAN";
     public string friendsPrompt = "DINNER WITH FRIENDS";
     public GameObject signal;
+    public GameObject friendsSignal;
 
     public float waitTimeMin = 1.5f;
     public float waitTimeMax = 4f;
@@ -66,6 +67,19 @@ public class DontEatYetGame : MonoBehaviour
 
         waitTimer = Random.Range(waitTimeMin, waitTimeMax);
         signal.SetActive(false);
+
+        if (friendsSignal != null)
+        {
+            if (isFamily == true)
+            {
+                friendsSignal.SetActive(false);
+            }
+            else
+            {
+                friendsSignal.SetActive(true);
+            }
+        }
+
         messageDisplay.text = "";
     }
 
