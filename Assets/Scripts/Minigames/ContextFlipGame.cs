@@ -14,30 +14,71 @@ public class ContextFlipGame : MonoBehaviour
     public float blinkTime = 0.4f;
 
     public AudioClip scrollSound;
-    public AudioClip selectSound;
     AudioSource flipAudio;
 
-    public string japaneseContextName = "DINNER WITH OBAACHAN";
-    public string americanContextName = "DINNER WITH FRIENDS";
+    public string japaneseSetting = "YOU'RE AT DINNER WITH OBAACHAN";
+    public string americanSetting = "YOU'RE AT DINNER WITH FRIENDS";
     public float flipTimeMin = 3f;
     public float flipTimeMax = 6f;
     public GameObject flipAnimation;
+
+    public float readTime = 1.5f;
+
+    public List<string> japaneseRightLines = new()
+    {
+        "OBAACHAN NODS!",
+        "SO WELL RAISED!",
+        "PERFECT MANNERS!",
+        "YOU MADE THE FAMILY PROUD"
+    };
+
+    public List<string> americanRightLines = new()
+    {
+        "SMOOTH!",
+        "SO CHILL!",
+        "CERTIFIED HOMIE",
+        "YOU FIT RIGHT IN"
+    };
+
+    public List<string> japaneseWrongLines = new()
+    {
+        "OBAACHAN GASPED!",
+        "WHERE ARE YOUR MANNERS?",
+        "MOM IS SO EMBARRASSED",
+        "WERE YOU RAISED BY WOLVES?"
+    };
+
+    public List<string> americanWrongLines = new()
+    {
+        "WHY SO FORMAL?",
+        "BRO, RELAX",
+        "THIS ISN'T A TEA CEREMONY",
+        "YOUR FRIENDS ARE CONFUSED"
+    };
+
+    public List<string> switchCaughtLines = new()
+    {
+        "SWITCH CAUGHT!",
+        "CODE SWITCH MASTER!",
+        "SMOOTH SWITCH!"
+    };
+    public float timeLimit = 20f;
 
     public List<string> cues = new();
     public List<string> japaneseAnswers = new();
     public List<string> americanAnswers = new();
 
-    public int pointsPerAnswer = 10;
-    public int wrongPenalty = 20;
-    public int flipBonus = 50;
+    public int basePoints = 5;
+    public int speedBonus = 10;
+    public float fastWindow = 2f;
+    public int switchBonus = 15;
     public float flipBonusWindow = 1.5f;
 
-    public TextMeshProUGUI contextDisplay;
     public TextMeshProUGUI cueDisplay;
     public TextMeshProUGUI leftDisplay;
     public TextMeshProUGUI rightDisplay;
-    public TextMeshProUGUI scoreDisplay;
-    public TextMeshProUGUI messageDisplay;
+    public TextMeshProUGUI timerDisplay;
+    public Host host;
     public float resultTime = 1.5f;
 
     bool isJapaneseContext;
@@ -49,8 +90,12 @@ public class ContextFlipGame : MonoBehaviour
     float timeSinceFlip;
     bool flipCaught = true;
 
-    int combo = 0;
     int points = 0;
+
+    float answerTimer;
+
+    bool reading = false;
+    float readTimer;
 
     bool cursorOnLeft = true;
     float blinkTimer;
@@ -76,7 +121,6 @@ public class ContextFlipGame : MonoBehaviour
     void Start()
     {
         flipAudio = GetComponent<AudioSource>();
-        ShowCursor();
 
         if (Random.Range(0, 2) == 0)
         {
@@ -94,13 +138,9 @@ public class ContextFlipGame : MonoBehaviour
             cuePool.Add(i);
         }
 
-        messageDisplay.text = "";
-        if (scoreDisplay != null)
-        {
-            scoreDisplay.text = "0";
-        }
-        ShowContext();
+        ShowTimer();
         NextCue();
+        StartReading();
     }
 
     void Update()
@@ -123,14 +163,47 @@ public class ContextFlipGame : MonoBehaviour
 
     void PlayGame()
     {
-        flipTimer -= Time.deltaTime;
-        timeSinceFlip += Time.deltaTime;
-
-        if (flipTimer <= 0)
+        if (reading == true)
         {
-            FlipContext();
-        }
+            readTimer -= Time.deltaTime;
 
+            if (readTimer <= 0)
+            {
+                reading = false;
+                timeSinceFlip = 0;
+                answerTimer = 0;
+                ShowCursor();
+            }
+        }
+        else
+        {
+            timeLimit -= Time.deltaTime;
+            ShowTimer();
+
+            if (timeLimit <= 0)
+            {
+                EndGame();
+            }
+            else
+            {
+                flipTimer -= Time.deltaTime;
+                timeSinceFlip += Time.deltaTime;
+                answerTimer += Time.deltaTime;
+
+                if (flipTimer <= 0)
+                {
+                    FlipContext();
+                }
+                else
+                {
+                    ChooseAnswer();
+                }
+            }
+        }
+    }
+
+    void ChooseAnswer()
+    {
         if (leftAction.triggered && cursorOnLeft == false)
         {
             cursorOnLeft = true;
@@ -149,9 +222,27 @@ public class ContextFlipGame : MonoBehaviour
         if (selectAction.triggered)
         {
             ShowCursor();
-            flipAudio.PlayOneShot(selectSound);
             CheckAnswer(cursorOnLeft);
         }
+    }
+
+    void ShowTimer()
+    {
+        if (timerDisplay != null)
+        {
+            timerDisplay.text = Mathf.CeilToInt(timeLimit).ToString();
+        }
+    }
+
+    void StartReading()
+    {
+        reading = true;
+        readTimer = readTime;
+
+        leftCursor.SetActive(false);
+        rightCursor.SetActive(false);
+
+        ShowCue();
     }
 
     void ShowCursor()
@@ -213,7 +304,7 @@ public class ContextFlipGame : MonoBehaviour
         flipTimer = Random.Range(flipTimeMin, flipTimeMax);
         timeSinceFlip = 0;
         flipCaught = false;
-        ShowContext();
+        StartReading();
 
         if (flipAnimation != null)
         {
@@ -221,16 +312,20 @@ public class ContextFlipGame : MonoBehaviour
         }
     }
 
-    void ShowContext()
+    string CurrentSetting()
     {
+        string setting;
+
         if (isJapaneseContext == true)
         {
-            contextDisplay.text = japaneseContextName;
+            setting = japaneseSetting;
         }
         else
         {
-            contextDisplay.text = americanContextName;
+            setting = americanSetting;
         }
+
+        return setting;
     }
 
     void NextCue()
@@ -239,17 +334,30 @@ public class ContextFlipGame : MonoBehaviour
         currentCue = cuePool[randomIndex];
         cuePool.Remove(currentCue);
 
-        cueDisplay.text = cues[currentCue];
-
         if (Random.Range(0, 2) == 0)
         {
             japaneseOnLeft = true;
+        }
+        else
+        {
+            japaneseOnLeft = false;
+        }
+
+        ShowCue();
+    }
+
+    void ShowCue()
+    {
+        answerTimer = 0;
+        cueDisplay.text = CurrentSetting() + ": " + cues[currentCue];
+
+        if (japaneseOnLeft == true)
+        {
             leftDisplay.text = japaneseAnswers[currentCue];
             rightDisplay.text = americanAnswers[currentCue];
         }
         else
         {
-            japaneseOnLeft = false;
             leftDisplay.text = americanAnswers[currentCue];
             rightDisplay.text = japaneseAnswers[currentCue];
         }
@@ -270,32 +378,41 @@ public class ContextFlipGame : MonoBehaviour
 
         if (pressedLeft == leftIsCorrect)
         {
-            combo++;
-            points += pointsPerAnswer * combo;
-            messageDisplay.text = "x" + combo;
+            int earned = host.SpeedPoints(basePoints, speedBonus, fastWindow - answerTimer, fastWindow);
+            string message;
+
+            if (isJapaneseContext == true)
+            {
+                message = host.Pick(japaneseRightLines);
+            }
+            else
+            {
+                message = host.Pick(americanRightLines);
+            }
 
             if (flipCaught == false && timeSinceFlip <= flipBonusWindow)
             {
-                points += flipBonus;
-                messageDisplay.text = "SWITCH CAUGHT! +" + flipBonus;
+                earned += switchBonus;
+                message = host.Pick(switchCaughtLines);
             }
+
             flipCaught = true;
+            points += earned;
+            host.Correct(message);
+            host.ShowPoints(earned);
         }
         else
         {
-            combo = 0;
-            points -= wrongPenalty;
-            messageDisplay.text = "-" + wrongPenalty;
-
-            if (points < 0)
+            if (isJapaneseContext == true)
             {
-                points = 0;
+                host.Wrong(host.Pick(japaneseWrongLines));
             }
-        }
+            else
+            {
+                host.Wrong(host.Pick(americanWrongLines));
+            }
 
-        if (scoreDisplay != null)
-        {
-            scoreDisplay.text = points.ToString();
+            host.ShowPoints(0);
         }
 
         if (cuePool.Count > 0)
@@ -310,12 +427,9 @@ public class ContextFlipGame : MonoBehaviour
 
     void EndGame()
     {
-        cueDisplay.text = "";
-        leftDisplay.text = "";
-        rightDisplay.text = "";
         leftCursor.SetActive(false);
         rightCursor.SetActive(false);
-        messageDisplay.text = "+" + points;
+        host.ShowPoints(points);
         finished = true;
     }
 

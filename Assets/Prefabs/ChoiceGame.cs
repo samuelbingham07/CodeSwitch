@@ -9,32 +9,57 @@ public class ChoiceGame : MonoBehaviour
     public InputAction verticalAction;
     public InputAction selectAction;
 
+    public List<GameObject> options = new();
     public List<GameObject> cursors = new();
     public int correctChoice = 0;
     public int columns = 3;
     public float blinkTime = 0.4f;
 
     public float timeLimit = 5f;
-    public int winPoints = 100;
+    public int basePoints = 50;
+    public int speedBonus = 50;
 
     public float resultTime = 1f;
 
-    public string winMessage = "NICE!";
-    public string loseMessage = "NOT QUITE";
+    public List<string> winLines = new()
+    {
+        "OBAACHAN APPROVES!",
+        "SUCH GOOD MANNERS!",
+        "YOUR MOM IS SO PROUD",
+        "THE AUNTIES WILL BRAG ABOUT YOU",
+        "MODEL GRANDCHILD!"
+    };
+
+    public List<string> wrongLines = new()
+    {
+        "THE AUNTIES ARE WHISPERING...",
+        "OBAACHAN SAW THAT.",
+        "MOM IS GIVING YOU THE LOOK",
+        "THAT'S GOING IN THE FAMILY GROUP CHAT",
+        "BACHI GA ATARU!"
+    };
+
+    public List<string> tooSlowLines = new()
+    {
+        "THINKING TOO HARD?",
+        "THEY'RE STILL WAITING...",
+        "SAY SOMETHING!"
+    };
 
     public TextMeshProUGUI timerDisplay;
-    public TextMeshProUGUI messageDisplay;
+    public Host host;
 
     public AudioClip scrollSound;
-    public AudioClip selectSound;
     AudioSource choiceAudio;
 
     int currentChoice = 0;
+    List<int> spotOrder = new();
     float blinkTimer;
     bool cursorVisible = true;
     bool finished = false;
     bool reported = false;
     int pointsEarned = 0;
+    float totalTime;
 
     private void OnEnable()
     {
@@ -53,8 +78,41 @@ public class ChoiceGame : MonoBehaviour
     void Start()
     {
         choiceAudio = GetComponent<AudioSource>();
-        messageDisplay.text = "";
+        totalTime = timeLimit;
+        ShuffleOptions();
         ShowCursor();
+    }
+
+    void ShuffleOptions()
+    {
+        if (options.Count == cursors.Count)
+        {
+            List<Vector3> spots = new();
+            List<int> pool = new();
+
+            for (int i = 0; i < options.Count; i++)
+            {
+                spots.Add(options[i].transform.localPosition);
+                pool.Add(i);
+            }
+
+            for (int spot = 0; spot < spots.Count; spot++)
+            {
+                int randomIndex = Random.Range(0, pool.Count);
+                int option = pool[randomIndex];
+                pool.Remove(option);
+
+                spotOrder.Add(option);
+                options[option].transform.localPosition = spots[spot];
+            }
+        }
+        else
+        {
+            for (int i = 0; i < cursors.Count; i++)
+            {
+                spotOrder.Add(i);
+            }
+        }
     }
 
     void Update()
@@ -67,7 +125,7 @@ public class ChoiceGame : MonoBehaviour
             if (timeLimit <= 0)
             {
                 timerDisplay.text = "0";
-                Lose();
+                Lose(host.Pick(tooSlowLines));
             }
             else
             {
@@ -132,7 +190,7 @@ public class ChoiceGame : MonoBehaviour
     {
         for (int i = 0; i < cursors.Count; i++)
         {
-            if (i == currentChoice)
+            if (i == spotOrder[currentChoice])
             {
                 cursors[i].SetActive(true);
             }
@@ -161,7 +219,7 @@ public class ChoiceGame : MonoBehaviour
                 cursorVisible = true;
             }
 
-            cursors[currentChoice].SetActive(cursorVisible);
+            cursors[spotOrder[currentChoice]].SetActive(cursorVisible);
             blinkTimer = blinkTime;
         }
     }
@@ -169,9 +227,8 @@ public class ChoiceGame : MonoBehaviour
     void Choose()
     {
         ShowCursor();
-        choiceAudio.PlayOneShot(selectSound);
 
-        if (currentChoice == correctChoice)
+        if (spotOrder[currentChoice] == correctChoice)
         {
             CorrectChoice();
         }
@@ -185,22 +242,24 @@ public class ChoiceGame : MonoBehaviour
     {
         if (finished == false)
         {
-            pointsEarned = winPoints;
-            messageDisplay.text = winMessage;
+            pointsEarned = host.SpeedPoints(basePoints, speedBonus, timeLimit, totalTime);
+            host.Correct(host.Pick(winLines));
+            host.ShowPoints(pointsEarned);
             finished = true;
         }
     }
 
     void WrongChoice()
     {
-        Lose();
+        Lose(host.Pick(wrongLines));
     }
 
-    void Lose()
+    void Lose(string message)
     {
         if (finished == false)
         {
-            messageDisplay.text = loseMessage;
+            host.Wrong(message);
+            host.ShowPoints(0);
             finished = true;
         }
     }

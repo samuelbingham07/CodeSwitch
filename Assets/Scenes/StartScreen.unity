@@ -1205,10 +1205,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'ARROW KEYS TO MOVE    |    SPACE TO SELECT
-
-    NOT SURE WHAT TO DO? PRESS
-    SPACE!'
+  m_text: ARROW KEYS TO MOVE    |    SPACE TO SELECT
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3b37436a92ebeaa4b97487e285418407, type: 2}
   m_sharedMaterial: {fileID: -5117310736472432132, guid: 3b37436a92ebeaa4b97487e285418407, type: 2}

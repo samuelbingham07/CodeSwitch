@@ -15,21 +15,42 @@ public class HonorificRushGame : MonoBehaviour
     public List<int> correctAnswers = new();
     public float timePerPerson = 3f;
 
-    public int pointsPerAnswer = 20;
-    public int wrongPenalty = 10;
+    public string introText = "HOW DO YOU ADDRESS EACH PERSON?";
+    public float introTime = 2f;
+
+    public int basePoints = 5;
+    public int speedBonus = 15;
+    public float timeBetweenPeople = 1f;
     public float resultTime = 1.5f;
 
-    public string rightMessage = "RIGHT!";
-    public string wrongMessage = "WRONG!";
-    public string tooSlowMessage = "TOO SLOW!";
+    public List<string> rightLines = new()
+    {
+        "PERFECT!",
+        "SO RESPECTFUL!",
+        "THEY FELT THAT RESPECT",
+        "NAILED IT!"
+    };
+
+    public List<string> wrongLines = new()
+    {
+        "THAT'S AWKWARD...",
+        "THEY'LL REMEMBER THAT",
+        "UMM, EXCUSE ME?",
+        "WHO RAISED YOU?"
+    };
+
+    public List<string> tooSlowLines = new()
+    {
+        "FORGOT HOW TO TALK?",
+        "UMMMM...",
+        "THEY WALKED AWAY"
+    };
 
     public TextMeshProUGUI personDisplay;
     public TextMeshProUGUI timerDisplay;
-    public TextMeshProUGUI scoreDisplay;
-    public TextMeshProUGUI messageDisplay;
+    public Host host;
 
     public AudioClip scrollSound;
-    public AudioClip selectSound;
     AudioSource gameAudio;
 
     int currentChoice = 0;
@@ -40,6 +61,9 @@ public class HonorificRushGame : MonoBehaviour
     List<int> personPool = new();
     float personTimer;
     int points = 0;
+
+    bool waiting = true;
+    float waitTimer;
 
     bool finished = false;
     bool reported = false;
@@ -65,46 +89,31 @@ public class HonorificRushGame : MonoBehaviour
             personPool.Add(i);
         }
 
-        messageDisplay.text = "";
-        ShowScore();
-        ShowCursor();
-        NextPerson();
+        waitTimer = introTime;
+        personDisplay.text = introText;
+
+        if (timerDisplay != null)
+        {
+            timerDisplay.text = "";
+        }
+
+        for (int i = 0; i < cursors.Count; i++)
+        {
+            cursors[i].SetActive(false);
+        }
     }
 
     void Update()
     {
         if (finished == false)
         {
-            personTimer -= Time.deltaTime;
-
-            if (timerDisplay != null)
+            if (waiting == true)
             {
-                timerDisplay.text = Mathf.CeilToInt(personTimer).ToString();
-            }
-
-            if (personTimer <= 0)
-            {
-                Answer(false, tooSlowMessage);
+                WaitForNextPerson();
             }
             else
             {
-                MoveCursor();
-                BlinkCursor();
-
-                if (selectAction.triggered)
-                {
-                    ShowCursor();
-                    gameAudio.PlayOneShot(selectSound);
-
-                    if (currentChoice == correctAnswers[currentPerson])
-                    {
-                        Answer(true, rightMessage);
-                    }
-                    else
-                    {
-                        Answer(false, wrongMessage);
-                    }
-                }
+                PlayRound();
             }
         }
         else
@@ -115,6 +124,52 @@ public class HonorificRushGame : MonoBehaviour
             {
                 reported = true;
                 ReportResult();
+            }
+        }
+    }
+
+    void WaitForNextPerson()
+    {
+        waitTimer -= Time.deltaTime;
+
+        if (waitTimer <= 0)
+        {
+            waiting = false;
+            ShowCursor();
+            NextPerson();
+        }
+    }
+
+    void PlayRound()
+    {
+        personTimer -= Time.deltaTime;
+
+        if (timerDisplay != null)
+        {
+            timerDisplay.text = Mathf.CeilToInt(personTimer).ToString();
+        }
+
+        if (personTimer <= 0)
+        {
+            Answer(false, host.Pick(tooSlowLines));
+        }
+        else
+        {
+            MoveCursor();
+            BlinkCursor();
+
+            if (selectAction.triggered)
+            {
+                ShowCursor();
+
+                if (currentChoice == correctAnswers[currentPerson])
+                {
+                    Answer(true, host.Pick(rightLines));
+                }
+                else
+                {
+                    Answer(false, host.Pick(wrongLines));
+                }
             }
         }
     }
@@ -133,24 +188,26 @@ public class HonorificRushGame : MonoBehaviour
     {
         if (correct == true)
         {
-            points += pointsPerAnswer;
+            int earned = host.SpeedPoints(basePoints, speedBonus, personTimer, timePerPerson);
+            points += earned;
+            host.Correct(message);
+            host.ShowPoints(earned);
         }
         else
         {
-            points -= wrongPenalty;
-
-            if (points < 0)
-            {
-                points = 0;
-            }
+            host.Wrong(message);
+            host.ShowPoints(0);
         }
-
-        messageDisplay.text = message;
-        ShowScore();
 
         if (personPool.Count > 0)
         {
-            NextPerson();
+            waiting = true;
+            waitTimer = timeBetweenPeople;
+
+            for (int i = 0; i < cursors.Count; i++)
+            {
+                cursors[i].SetActive(false);
+            }
         }
         else
         {
@@ -160,23 +217,13 @@ public class HonorificRushGame : MonoBehaviour
 
     void EndGame()
     {
-        personDisplay.text = "";
-
         for (int i = 0; i < cursors.Count; i++)
         {
             cursors[i].SetActive(false);
         }
 
-        messageDisplay.text = "+" + points;
+        host.ShowPoints(points);
         finished = true;
-    }
-
-    void ShowScore()
-    {
-        if (scoreDisplay != null)
-        {
-            scoreDisplay.text = points.ToString();
-        }
     }
 
     void MoveCursor()

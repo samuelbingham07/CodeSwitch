@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
@@ -19,21 +20,55 @@ public class BowDepthGame : MonoBehaviour
     public float casualMax = 0.3f;
 
     public float timeLimit = 5f;
-    public int winPoints = 100;
+    public int basePoints = 50;
+    public int speedBonus = 50;
     public float resultTime = 1f;
 
-    public string winMessage = "NICE!";
-    public string tooFormalMessage = "TOO FORMAL!";
-    public string tooCasualMessage = "TOO CASUAL!";
-    public string missMessage = "MISSED!";
-    public string loseMessage = "NOT QUITE";
+    public List<string> formalWinLines = new()
+    {
+        "GRANDPA IS PLEASED",
+        "BEAUTIFUL BOW!",
+        "SO RESPECTFUL!"
+    };
+
+    public List<string> casualWinLines = new()
+    {
+        "COOL NOD!",
+        "SMOOTH, NOT WEIRD",
+        "TEAMMATE APPROVED"
+    };
+
+    public List<string> tooFormalLines = new()
+    {
+        "IT'S JUST YOUR TEAMMATE...",
+        "WHY ARE YOU BOWING SO LOW?",
+        "YOUR TEAM IS CONFUSED"
+    };
+
+    public List<string> tooCasualLines = new()
+    {
+        "GRANDPA IS NOT IMPRESSED",
+        "A NOD? FOR GRANDPA?",
+        "LOWER! LOWER!"
+    };
+
+    public List<string> missLines = new()
+    {
+        "WHAT WAS THAT?",
+        "DID YOU TRIP?",
+        "HALF A BOW?"
+    };
+
+    public List<string> tooSlowLines = new()
+    {
+        "FROZEN?",
+        "SAY HI!",
+        "THEY'RE STILL WAITING..."
+    };
 
     public TextMeshProUGUI promptDisplay;
     public TextMeshProUGUI timerDisplay;
-    public TextMeshProUGUI messageDisplay;
-
-    public AudioClip selectSound;
-    AudioSource gameAudio;
+    public Host host;
 
     bool isFormal;
     float meterValue = 0;
@@ -42,6 +77,7 @@ public class BowDepthGame : MonoBehaviour
     bool finished = false;
     bool reported = false;
     int pointsEarned = 0;
+    float totalTime;
 
     private void OnEnable()
     {
@@ -55,7 +91,7 @@ public class BowDepthGame : MonoBehaviour
 
     void Start()
     {
-        gameAudio = GetComponent<AudioSource>();
+        totalTime = timeLimit;
 
         if (Random.Range(0, 2) == 0)
         {
@@ -68,7 +104,6 @@ public class BowDepthGame : MonoBehaviour
             promptDisplay.text = casualPrompt;
         }
 
-        messageDisplay.text = "";
         MoveMarker();
     }
 
@@ -85,7 +120,7 @@ public class BowDepthGame : MonoBehaviour
 
             if (timeLimit <= 0)
             {
-                Lose(loseMessage);
+                Lose(host.Pick(tooSlowLines));
             }
             else
             {
@@ -93,7 +128,6 @@ public class BowDepthGame : MonoBehaviour
 
                 if (selectAction.triggered)
                 {
-                    gameAudio.PlayOneShot(selectSound);
                     CheckBow();
                 }
             }
@@ -139,7 +173,7 @@ public class BowDepthGame : MonoBehaviour
         float rightMax;
         float wrongMin;
         float wrongMax;
-        string wrongZoneMessage;
+        List<string> wrongZoneLines;
 
         if (isFormal == true)
         {
@@ -147,7 +181,7 @@ public class BowDepthGame : MonoBehaviour
             rightMax = formalMax;
             wrongMin = casualMin;
             wrongMax = casualMax;
-            wrongZoneMessage = tooCasualMessage;
+            wrongZoneLines = tooCasualLines;
         }
         else
         {
@@ -155,28 +189,39 @@ public class BowDepthGame : MonoBehaviour
             rightMax = casualMax;
             wrongMin = formalMin;
             wrongMax = formalMax;
-            wrongZoneMessage = tooFormalMessage;
+            wrongZoneLines = tooFormalLines;
         }
 
         if (meterValue >= rightMin && meterValue <= rightMax)
         {
-            pointsEarned = winPoints;
-            messageDisplay.text = winMessage;
+            pointsEarned = host.SpeedPoints(basePoints, speedBonus, timeLimit, totalTime);
+
+            if (isFormal == true)
+            {
+                host.Correct(host.Pick(formalWinLines));
+            }
+            else
+            {
+                host.Correct(host.Pick(casualWinLines));
+            }
+
+            host.ShowPoints(pointsEarned);
             finished = true;
         }
         else if (meterValue >= wrongMin && meterValue <= wrongMax)
         {
-            Lose(wrongZoneMessage);
+            Lose(host.Pick(wrongZoneLines));
         }
         else
         {
-            Lose(missMessage);
+            Lose(host.Pick(missLines));
         }
     }
 
     void Lose(string message)
     {
-        messageDisplay.text = message;
+        host.Wrong(message);
+        host.ShowPoints(0);
         finished = true;
     }
 

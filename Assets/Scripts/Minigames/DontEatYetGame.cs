@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
@@ -16,23 +17,54 @@ public class DontEatYetGame : MonoBehaviour
     public float reactWindow = 1.5f;
     public float friendsWindow = 2f;
 
-    public int winPoints = 100;
+    public int basePoints = 50;
+    public int speedBonus = 50;
     public float resultTime = 1f;
 
-    public string winMessage = "NICE!";
-    public string tooSoonMessage = "TOO SOON!";
-    public string tooSlowMessage = "TOO SLOW!";
+    public List<string> familyWinLines = new()
+    {
+        "ITADAKIMASU!",
+        "PERFECT TIMING!",
+        "OBAACHAN SMILES"
+    };
+
+    public List<string> friendsWinLines = new()
+    {
+        "NO NEED TO WAIT!",
+        "DIG IN!",
+        "FOOD'S HOT, GO!"
+    };
+
+    public List<string> tooSoonLines = new()
+    {
+        "WHY DIDN'T YOU WAIT?",
+        "OBAACHAN ISN'T EVEN SEATED!",
+        "HANDS OFF!"
+    };
+
+    public List<string> familyTooSlowLines = new()
+    {
+        "THE FOOD GOT COLD...",
+        "EVERYONE STARTED WITHOUT YOU",
+        "HELLO? ITADAKIMASU!"
+    };
+
+    public List<string> friendsTooSlowLines = new()
+    {
+        "YOUR FRIENDS ATE IT ALL",
+        "WHY ARE YOU WAITING?",
+        "THIS ISN'T OBAACHAN'S HOUSE!"
+    };
 
     public TextMeshProUGUI promptDisplay;
-    public TextMeshProUGUI messageDisplay;
-
-    public AudioClip selectSound;
-    AudioSource gameAudio;
+    public TextMeshProUGUI timerDisplay;
+    public Host host;
 
     bool isFamily;
     bool signalShown = false;
     float waitTimer;
     float windowTimer;
+    float timeLeft;
 
     bool finished = false;
     bool reported = false;
@@ -50,8 +82,6 @@ public class DontEatYetGame : MonoBehaviour
 
     void Start()
     {
-        gameAudio = GetComponent<AudioSource>();
-
         if (Random.Range(0, 2) == 0)
         {
             isFamily = true;
@@ -66,6 +96,15 @@ public class DontEatYetGame : MonoBehaviour
         }
 
         waitTimer = Random.Range(waitTimeMin, waitTimeMax);
+
+        if (isFamily == true)
+        {
+            timeLeft = waitTimer + reactWindow;
+        }
+        else
+        {
+            timeLeft = friendsWindow;
+        }
         signal.SetActive(false);
 
         if (friendsSignal != null)
@@ -80,13 +119,19 @@ public class DontEatYetGame : MonoBehaviour
             }
         }
 
-        messageDisplay.text = "";
     }
 
     void Update()
     {
         if (finished == false)
         {
+            timeLeft -= Time.deltaTime;
+
+            if (timerDisplay != null)
+            {
+                timerDisplay.text = Mathf.CeilToInt(timeLeft).ToString();
+            }
+
             if (isFamily == true)
             {
                 FamilyRound();
@@ -116,8 +161,7 @@ public class DontEatYetGame : MonoBehaviour
 
             if (selectAction.triggered)
             {
-                gameAudio.PlayOneShot(selectSound);
-                Lose(tooSoonMessage);
+                Lose(host.Pick(tooSoonLines));
             }
             else if (waitTimer <= 0)
             {
@@ -131,12 +175,11 @@ public class DontEatYetGame : MonoBehaviour
 
             if (selectAction.triggered)
             {
-                gameAudio.PlayOneShot(selectSound);
                 Win();
             }
             else if (windowTimer <= 0)
             {
-                Lose(tooSlowMessage);
+                Lose(host.Pick(familyTooSlowLines));
             }
         }
     }
@@ -147,25 +190,42 @@ public class DontEatYetGame : MonoBehaviour
 
         if (selectAction.triggered)
         {
-            gameAudio.PlayOneShot(selectSound);
             Win();
         }
         else if (windowTimer <= 0)
         {
-            Lose(tooSlowMessage);
+            Lose(host.Pick(friendsTooSlowLines));
         }
     }
 
     void Win()
     {
-        pointsEarned = winPoints;
-        messageDisplay.text = winMessage;
+        if (isFamily == true)
+        {
+            pointsEarned = host.SpeedPoints(basePoints, speedBonus, windowTimer, reactWindow);
+        }
+        else
+        {
+            pointsEarned = host.SpeedPoints(basePoints, speedBonus, windowTimer, friendsWindow);
+        }
+
+        if (isFamily == true)
+        {
+            host.Correct(host.Pick(familyWinLines));
+        }
+        else
+        {
+            host.Correct(host.Pick(friendsWinLines));
+        }
+
+        host.ShowPoints(pointsEarned);
         finished = true;
     }
 
     void Lose(string message)
     {
-        messageDisplay.text = message;
+        host.Wrong(message);
+        host.ShowPoints(0);
         finished = true;
     }
 
